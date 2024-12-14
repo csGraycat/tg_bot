@@ -3,13 +3,58 @@ import telebot
 import speech_recognition
 from pydub import AudioSegment
 from bot_secret_token import bot_secret_token
+from PIL import Image, ImageEnhance, ImageFilter
 
-
-# Ниже нужно вставить токен, который дал BotFather при регистрации
-# Пример: token = '2007628239:AAEF4ZVqLiRKG7j49EC4vaRwXjJ6DN6xng8'
 token = bot_secret_token  # <<< Ваш токен
 
 bot = telebot.TeleBot(token)
+
+
+def transform_image(input_filename, output_filename):
+    # Функция обработки изображения
+    source_image = Image.open(input_filename)
+    enhanced_image = source_image.filter(ImageFilter.EMBOSS)
+    enhanced_image = enhanced_image.convert('RGB')
+    enhanced_image.save(output_filename)
+    return output_filename
+
+
+def compress_image(input_filename, output_filename):
+    source_image = Image.open(input_filename)
+    width = source_image.size[0]
+    height = source_image.size[1]
+    resized_image = source_image.resize((width // 5, height // 5))
+    resized_image.save(output_filename)
+    return output_filename
+
+
+@bot.message_handler(content_types=['photo'])
+def resend_photo(message):
+    files_to_delete = []
+
+    # Функция отправки обработанного изображения
+    file_id = message.photo[-1].file_id
+    filename = download_file(bot, file_id)
+    files_to_delete.append(filename)
+
+    # Трансформируем изображение
+    transform_image(filename, 'transformed_image.jpg')
+    image = open('transformed_image.jpg', 'rb')
+    bot.send_photo(message.chat.id, image)
+    image.close()
+    files_to_delete.append('transformed_image.jpg')
+
+    # сжимаем изображение
+    compress_image(filename, 'compressed_image.jpg')
+    image = open('compressed_image.jpg', 'rb')
+    bot.send_photo(message.chat.id, image)
+    image.close()
+    files_to_delete.append('compressed_image.jpg')
+
+    # Не забываем удалять ненужные изображения
+    for filename in files_to_delete:
+        if os.path.exists(filename):
+            os.remove(filename)
 
 
 def oga2wav(filename):
